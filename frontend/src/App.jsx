@@ -5,6 +5,7 @@ import Register from './pages/Register'
 import Home from './pages/Home'
 import NotFound from "./pages/NotFound"
 import ProtectedRoute from "./components/ProtectedRoute"
+import AssistantChat from "./pages/AssistantChat"
 
 function Logout() {
   localStorage.clear()
@@ -25,6 +26,7 @@ function App() {
           <ProtectedRoute>
             <Home />
           </ProtectedRoute>} />
+        <Route path='/chat' element={<AssistantChat />}/>
         <Route path='/login' element={<Login />} />
         <Route path='/logout' element={<Logout />} />
         <Route path='/register' element={<RegisterAndLogout />} />

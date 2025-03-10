@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import api from "../api";
 import Event from "../components/Event"
+import ChatComponent from "../components/chat";
 import "../styles/Home.css"
 
 function Home() {
@@ -100,6 +101,7 @@ function Home() {
                 />
                 <input type="submit" value="Submit"></input>
             </form>
+            <ChatComponent />
         </div>
     );
 }
