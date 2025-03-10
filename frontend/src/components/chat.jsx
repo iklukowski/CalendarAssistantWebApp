@@ -1,5 +1,6 @@
 import { useState } from "react"
 import api from "../api"
+import '../styles/Chat.css'
 
 const ChatComponent = () => {
     const [message, setMessage] = useState("")
@@ -17,10 +18,11 @@ const ChatComponent = () => {
     }
 
     return (
-        <div>
+        <div className="chat-container">
             <h2>Chat with Assistant</h2>
-            <input value={message} onChange={(e) => setMessage(e.target.value)}/>
-            <button onClick={SendMessage}>Send Message</button>
+            <textarea className="chat-input" value={message} onChange={(e) => setMessage(e.target.value)}/>
+            <p/>
+            <button className="send-button" onClick={SendMessage}>Send Message</button>
             <p>Assistant response: {response}</p>
         </div>
     )

@@ -1,0 +1,20 @@
+.chat-container {
+    padding: 10px;
+    margin: 20px 0;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+  }
+
+  .send-button {
+    background-color: #3f76e5; /* Red */
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+
+  .send-button:hover {
+    background-color:#0d51be
+  }
