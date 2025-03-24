@@ -6,11 +6,11 @@ import "../styles/Home.css"
 
 function Home() {
     const [events, setEvents] = useState([]);
-//    const [content, setContent] = useState("");
     const [title, setTitle] = useState("");
     const [date, setDate] = useState("now");
     const [start_time, setStart_time] = useState("8:00");
     const [end_time, setEnd_time] = useState("10:00");
+
 
     const currentDate = new Date()
 
@@ -52,12 +52,23 @@ function Home() {
             .catch((err) => alert(err));
     };
 
+    const updateEventNote = (id, note) => {
+        api
+            .patch(`api/event/update/${id}/`, { note })
+            .then((res) => {
+                if (res.status === 200) console.log("Note updated!");
+                else console.log("Failed to update note.");
+                getEvents();
+            })
+            .catch((err) => alert(err));
+    }
+
     return (
         <div>
             <div>
                 <h2>Calendar</h2>
                 {events.map((event) => (
-                    <Event event={event} onDelete={deleteEvent} key={event.id} />
+                    <Event event={event} onDelete={deleteEvent} onUpdate={updateEventNote} key={event.id} />
                 ))}
             </div>
             <h2>Create an Event</h2>
