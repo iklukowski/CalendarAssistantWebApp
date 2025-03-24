@@ -29,7 +29,14 @@ class EventDelete(generics.DestroyAPIView):
         user = self.request.user
         return Event.objects.filter(author=user)
     
+
+class EventUpdate(generics.UpdateAPIView):
+    serializer_class = EventSerializer
+    permission_classes = [IsAuthenticated]
     
+    def get_queryset(self):
+        user = self.request.user
+        return Event.objects.filter(author=user)    
 
 # Create your views here.
 class CreateUserView(generics.CreateAPIView):
