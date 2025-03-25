@@ -9,7 +9,7 @@ class CalendarAssistant:
         
     def respond(self, user_input):
     #    chat_history = self.memory.load_memory_variables({})    
-        response = self.llm([
+        response = self.llm.invoke([
             SystemMessage(content="You are a helpful calendar assistant"),
             HumanMessage(content=user_input)
         ])

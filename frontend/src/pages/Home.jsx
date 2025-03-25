@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import api from "../api";
 import Event from "../components/Event"
 import ChatComponent from "../components/chat";
+import Calendar from "../components/Calendar";
 import "../styles/Home.css"
 
 function Home() {
@@ -11,8 +12,6 @@ function Home() {
     const [start_time, setStart_time] = useState("8:00");
     const [end_time, setEnd_time] = useState("10:00");
 
-
-    const currentDate = new Date()
 
     useEffect(() => {
         getEvents();
@@ -67,9 +66,7 @@ function Home() {
         <div>
             <div>
                 <h2>Calendar</h2>
-                {events.map((event) => (
-                    <Event event={event} onDelete={deleteEvent} onUpdate={updateEventNote} key={event.id} />
-                ))}
+                <Calendar events={events} />
             </div>
             <h2>Create an Event</h2>
             <form onSubmit={createEvent}>
