@@ -4,6 +4,7 @@ import Event from "../components/Event"
 import ChatComponent from "../components/chat";
 import Calendar from "../components/Calendar";
 import "../styles/Home.css"
+import DemoCalendar from "../components/demoCalendar";
 
 function Home() {
     const [events, setEvents] = useState([]);
@@ -22,8 +23,18 @@ function Home() {
             .get("/api/event/")
             .then((res) => res.data)
             .then((data) => {
-                setEvents(data);
+                const calendar_events = data.map((event) => {
+                    return {
+                        id: event.id,
+                        title: `${event.title} ${event.note}`,
+                        start: `${event.date} ${event.start_time}`,
+                        end: `${event.date} ${event.end_time}`,
+                        author: event.author
+                    };
+                });
+                setEvents(calendar_events);
                 console.log(data);
+                console.log({calendar_events});
             })
             .catch((err) => alert(err));
     };
@@ -66,7 +77,8 @@ function Home() {
         <div>
             <div>
                 <h2>Calendar</h2>
-                <Calendar events={events} />
+                {/*<Calendar events={events} />*/}
+                <DemoCalendar events={events} chat_events={[{id: 100, title:"Test potential chat event", start:"2025-03-26 17:00:00", end:"2025-03-26 19:00:00", color:"green"}]}/>
             </div>
             <h2>Create an Event</h2>
             <form onSubmit={createEvent}>
