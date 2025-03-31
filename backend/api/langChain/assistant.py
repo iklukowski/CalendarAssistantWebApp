@@ -18,7 +18,7 @@ class Response(BaseModel):
     """Structured response for the assistant"""
     description: str = Field(description="A basic description of the human message and the assistant approach")
     events: Optional[list[ChatEvent]] = Field(description="A list of events that should be created to satisfy the user request")
-    modify_calendar: bool = Field(description="A boolean indicating if the calendar should be modified")
+    modify_calendar: bool = Field(description="A boolean indicating if the calendar should be modified, should be true if the user request is to add or modify an event, false otherwise")
     response: str = Field(description="The response to the user request")
 
 class CalendarAssistant:
@@ -37,31 +37,27 @@ class CalendarAssistant:
                         date=event.date,
                         start_time=event.start_time,
                         end_time=event.end_time,
-                        author=user.User,
+                        author=user,
                     )
                     e.save()
                     print(f"Event created: {e.title} on {e.date} from {e.start_time} to {e.end_time}")
                 except Exception as e:
                     print (f"Error creating event: {e}")
-        
         return
         
     def respond(self, user_input, user):
     #    chat_history = self.memory.load_memory_variables({})    
-        """
-        response = self.llm.invoke([
-            SystemMessage(content="You are a helpful calendar assistant"),
-            HumanMessage(content=user_input)
-        ])
-        """
-        #Testing 
-        #response = self.structured_llm.invoke("Add an event to my calendar for 2025-04-04 called Meeting from 10:00 to 12:00")
         response = self.structured_llm.invoke([
             SystemMessage(content="You are a helpful calendar assistant"),
-            HumanMessage(content="Add an event to my calendar for 2025-04-04 called Meeting from 10:00 to 12:00")
+            HumanMessage(content=user_input)
         ])
         self.handle_request(response, user)
         
        # self.memory.save_context({"input": user_input}, {"output": response.content})
-        return response.response
+        return {
+            "desription": response.description,
+            "events": [event.dict() for event in response.events] if response.events else [],
+            "modify_calendar": response.modify_calendar,
+            "response": response.response
+        }
 

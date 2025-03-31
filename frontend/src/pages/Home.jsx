@@ -102,8 +102,7 @@ function Home() {
         setifEdit(true);
         setTitle(info.event.title);
         setEventId(info.event.id);
-        const formDate = info.event.start.toLocaleDateString();
-        setDate(`${formDate.split("/")[2]}-${formDate.split("/")[1]}-${formDate.split("/")[0]}`);
+        setDate(info.event.start.toLocaleDateString("en-CA"));
         setStart_time(info.event.start.toTimeString().split(" ")[0]);
         setEnd_time(info.event.end.toTimeString().split(" ")[0]);
         console.log(info.event.start.toLocaleDateString("en-CA"));
@@ -171,7 +170,7 @@ function Home() {
                     </div>
                 </div>
             )}
-            <ChatComponent />
+            <ChatComponent refreshEvents={getEvents} />
         </div>
     );
 }

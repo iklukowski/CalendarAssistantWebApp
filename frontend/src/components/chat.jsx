@@ -2,19 +2,20 @@ import { useState } from "react"
 import api from "../api"
 import '../styles/Chat.css'
 
-const ChatComponent = () => {
+const ChatComponent = ({refreshEvents}) => {
     const [message, setMessage] = useState("")
     const [response, setResponse] = useState("")
 
     const ChatWithAssistant = async (message) => {
-        const response = await api.get(`/api/assistant/chat/?message=${encodeURIComponent(message)}`)
-        console.log(response.data.response)
-        return response.data.response
+        const chat_response = await api.get(`/api/assistant/chat/?message=${encodeURIComponent(message)}`)
+        console.log(chat_response.data.response)
+        return chat_response.data.response
     }
 
     const SendMessage = async () => {
         const assistantResponse = await ChatWithAssistant(message)
-        setResponse(assistantResponse)
+        setResponse(assistantResponse.response)
+        refreshEvents()
     }
 
     return (
