@@ -14,6 +14,7 @@ function Home() {
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [ifEdit, setifEdit] = useState(false);
     const [eventId, setEventId] = useState(null);
+    const [note, setNote] = useState("");
 
     const currentDate = new Date();
     const [date, setDate] = useState(currentDate.toLocaleDateString("en-CA"));
@@ -30,7 +31,7 @@ function Home() {
                 const calendar_events = data.map((event) => {
                     return {
                         id: event.id,
-                        title: `${event.title} ${event.note}`,
+                        title: `${event.title} \n ${event.note}`,
                         start: `${event.date} ${event.start_time}`,
                         end: `${event.date} ${event.end_time}`,
                         author: event.author
@@ -43,7 +44,8 @@ function Home() {
             .catch((err) => console.log(err));
     };
 
-    const deleteEvent = (id) => {
+    const deleteEvent = (e, id) => {
+        e.preventDefault();
         api
             .delete(`/api/event/delete/${id}/`)
             .then((res) => {
@@ -52,6 +54,7 @@ function Home() {
                 getEvents();
             })
             .catch((error) => alert(error));
+        handleEventClickAway();
     };
 
     const handleSave = (e) => {
@@ -65,12 +68,7 @@ function Home() {
                 updateEvent(eventId)
             else
                 createEvent(e);
-            setIsAddOpen(!isAddOpen);  
-            setifEdit(false);
-            setTitle("");
-            setDate(currentDate.toLocaleDateString("en-CA"));
-            setStart_time("08:00");
-            setEnd_time("10:00");
+            handleEventClickAway();
         }
     }  
     
@@ -88,7 +86,7 @@ function Home() {
 
     const updateEvent = (id) => {
         api
-            .patch(`api/event/update/${id}/`, {date, title, start_time, end_time })
+            .patch(`api/event/update/${id}/`, {date, title, start_time, end_time, note})
             .then((res) => {
                 if (res.status === 200) console.log("Event updated!");
                 else alert("Failed to update event.");
@@ -100,13 +98,13 @@ function Home() {
     const handleEventClick = (info) => {
         setIsAddOpen(!isAddOpen);
         setifEdit(true);
-        setTitle(info.event.title);
+        setTitle(info.event.title.split('\n')[0]);
         setEventId(info.event.id);
         setDate(info.event.start.toLocaleDateString("en-CA"));
         setStart_time(info.event.start.toTimeString().split(" ")[0]);
         setEnd_time(info.event.end.toTimeString().split(" ")[0]);
-        console.log(info.event.start.toLocaleDateString("en-CA"));
-        console.log(info.event.start.toTimeString())
+        console.log(info.event.title.split('\n')[1]);
+        setNote(info.event.title.split('\n')[1]);
     }
 
     const handleEventClickAway = () => {
@@ -117,6 +115,7 @@ function Home() {
         setStart_time("08:00");
         setEnd_time("10:00");
         setEventId(null);
+        setNote("");
     }
 
     return (
@@ -139,7 +138,7 @@ function Home() {
                             &times;
                         </span>
                         {ifEdit ? <h2>Edit Event</h2> : <h2>Add Event</h2>}
-                        <form onSubmit={(e) => handleSave(e)}>
+                        <form>
                             <input
                                 type="text"
                                 placeholder="Title"
@@ -165,7 +164,14 @@ function Home() {
                                 required
                                 onChange={(e) => setEnd_time(e.target.value)}
                             />
-                            <button type="submit">Save</button>
+                            {ifEdit && <input
+                                type="textfield"
+                                placeholder="Note"
+                                value={note}
+                                onChange={(e) => setNote(e.target.value)}
+                            />}
+                            <button className="submit-button" onClick={(e) => handleSave(e)}>Save</button>
+                            <button className="delete-button" onClick={(e) => deleteEvent(e, eventId)}>Delete</button>
                         </form>
                     </div>
                 </div>

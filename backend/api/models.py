@@ -7,7 +7,7 @@ class Event(models.Model):
     title = models.CharField(max_length=100)
     start_time = models.TimeField()
     end_time = models.TimeField()
-    note = models.TextField(max_length=300, default="")
+    note = models.TextField(max_length=300, default="", blank=True)
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="event")
     
     def __str__(self):
