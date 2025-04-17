@@ -5,6 +5,7 @@ from langchain_core.tools import tool
 from typing import Optional
 from pydantic import BaseModel, Field
 from ..models import Event
+from dotenv import load_dotenv
 
 
 class ChatEvent(BaseModel):
@@ -22,7 +23,8 @@ class Response(BaseModel):
     response: str = Field(description="The response to the user request")
 
 class CalendarAssistant:
-    def __init__(self):   
+    def __init__(self):
+        load_dotenv()   
         self.llm = ChatOpenAI(model="gpt-4o-mini")
         self.structured_llm = self.llm.with_structured_output(Response)
      #   self.memory = ConversationBufferMemory(memory_key="chat_history")
