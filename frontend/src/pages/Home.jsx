@@ -18,6 +18,8 @@ function Home() {
 
     const currentDate = new Date();
     const [date, setDate] = useState(currentDate.toLocaleDateString("en-CA"));
+
+    const [chatEvents, setChatEvents] = useState([]);
     
     useEffect(() => {
         getEvents();
@@ -31,10 +33,14 @@ function Home() {
                 const calendar_events = data.map((event) => {
                     return {
                         id: event.id,
-                        title: `${event.title} \n ${event.note}`,
+                        title: `${event.title}`,
                         start: `${event.date} ${event.start_time}`,
                         end: `${event.date} ${event.end_time}`,
-                        author: event.author
+                        author: event.author,
+                        extendedProps: {
+                            AssistantFlag: false,
+                            note: event.note != null ? event.note : "",
+                        }
                     };
                 });
                 setEvents(calendar_events);
@@ -96,15 +102,34 @@ function Home() {
     }
 
     const handleEventClick = (info) => {
+        if (info.event.extendedProps.AssistantFlag) {
+            console.log(info.event.extendedProps.AssistantFlag);
+            const e = {
+                title: info.event.title.split('\n')[0],
+                date: info.event.start.toLocaleDateString("en-CA"),
+                start_time: info.event.start.toTimeString().split(" ")[0],
+                end_time: info.event.end.toTimeString().split(" ")[0],
+            }
+            api
+                .post("/api/event/", e)
+                .then((res) => {
+                    if (res.status === 201) console.log("Event created!");
+                    else alert("Failed to make event.");
+                    getEvents();
+                })
+                .catch((err) => alert(err));
+            setChatEvents(chatEvents.filter((event) => event.id !== info.event.id));
+            return;
+        }
         setIsAddOpen(!isAddOpen);
         setifEdit(true);
-        setTitle(info.event.title.split('\n')[0]);
+        setTitle(info.event.title);
         setEventId(info.event.id);
         setDate(info.event.start.toLocaleDateString("en-CA"));
         setStart_time(info.event.start.toTimeString().split(" ")[0]);
         setEnd_time(info.event.end.toTimeString().split(" ")[0]);
-        console.log(info.event.title.split('\n')[1]);
-        setNote(info.event.title.split('\n')[1]);
+        console.log(info.event.extendedProps.note);
+        setNote(info.event.extendedProps.note);
     }
 
     const handleEventClickAway = () => {
@@ -118,6 +143,24 @@ function Home() {
         setNote("");
     }
 
+    const newChatEvents = (events) => {
+        events = events.map((event) => {
+             return {
+                id: event.id,
+                title: event.title,
+                start: `${event.date} ${event.start_time}`,
+                end: `${event.date} ${event.end_time}`,
+                color: "green",
+                extendedProps: {
+                    AssistantFlag: true,
+                    note: "Assistant Event",
+                },
+            }
+        })
+        setChatEvents(events);
+        console.log("chat events", events);
+    }
+
     return (
         <div>
             <div>
@@ -128,7 +171,7 @@ function Home() {
             </div>
             <Calendar 
                     events={events} 
-                    chat_events={[{id: 100, title:"Test potential chat event", start:"2025-04-04 09:00:00", end:"2025-04-04 14:00:00", color:"green"}]}
+                    chat_events={chatEvents}
                     eventClick={handleEventClick}
                     />
             {isAddOpen && (
@@ -176,7 +219,7 @@ function Home() {
                     </div>
                 </div>
             )}
-            <ChatComponent refreshEvents={getEvents} />
+            <ChatComponent refreshEvents={getEvents} setChatEvents={newChatEvents} />
         </div>
     );
 }

@@ -2,7 +2,7 @@ import { useState } from "react"
 import api from "../api"
 import '../styles/Chat.css'
 
-const ChatComponent = ({refreshEvents}) => {
+const ChatComponent = ({refreshEvents, setChatEvents}) => {
     const [message, setMessage] = useState("")
     const [response, setResponse] = useState("")
 
@@ -15,6 +15,7 @@ const ChatComponent = ({refreshEvents}) => {
     const SendMessage = async () => {
         const assistantResponse = await ChatWithAssistant(message)
         setResponse(assistantResponse.response)
+        setChatEvents(assistantResponse.new_events)
         refreshEvents()
     }
 

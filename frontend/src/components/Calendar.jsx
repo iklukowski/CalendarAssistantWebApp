@@ -4,6 +4,21 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 
 function Calendar({events, chat_events=[], eventClick}) {
     const calendar_events = [...events, ...chat_events];
+
+    function renderEventContent(eventInfo) {
+        return(
+          <>
+          <div>
+            <b>{eventInfo.timeText}</b>
+            <button>+</button>
+            <br />
+            <i>{eventInfo.event.title}</i>
+          </div>
+          <b>{eventInfo.event.extendedProps.note}</b>
+          </>
+        )
+      }
+
     return (
         <FullCalendar
             plugins={[timeGridPlugin]}
@@ -15,13 +30,14 @@ function Calendar({events, chat_events=[], eventClick}) {
             }}
             events={calendar_events}
             firstDay={1}
-            slotMinTime="06:00:00"
-            slotMaxTime="24:00:00"
+            slotMinTime="08:00:00"
+            slotMaxTime="21:00:00"
             expandRows={true}
             eventMouseEnter= { (info) => {
                 info.el.style.cursor = "pointer";
             }}
             eventClick={eventClick}
+            eventContent={renderEventContent}
         />
     );
 }
