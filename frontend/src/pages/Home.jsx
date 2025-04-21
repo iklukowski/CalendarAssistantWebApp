@@ -20,7 +20,9 @@ function Home() {
     const [date, setDate] = useState(currentDate.toLocaleDateString("en-CA"));
 
     const [chatEvents, setChatEvents] = useState([]);
-    
+    const [updatedChatEvents, setUpdatedChatEvents] = useState([]);
+    const [eventsToDelete, setEventsToDelete] = useState([]);
+
     useEffect(() => {
         getEvents();
     }, []);
@@ -161,6 +163,49 @@ function Home() {
         console.log("chat events", events);
     }
 
+    const eventsToChangeHandler = (updatedEvents, eventsToChange) => {
+        updatedEvents = updatedEvents.map((event) => {
+            return {
+                id: event.id,
+                title: event.title,
+                start: `${event.date} ${event.start_time}`,
+                end: `${event.date} ${event.end_time}`,
+                color: "green",
+                extendedProps: {
+                    AssistantFlag: true,
+                    note: "Assistant Updated Event",
+                },
+            }
+        })
+        setUpdatedChatEvents(updatedEvents);
+        eventsToChange = eventsToChange.map((event) => {
+            return {
+                id: event.id,
+                title: event.title,
+                start: `${event.date} ${event.start_time}`,
+                end: `${event.date} ${event.end_time}`,
+            }
+        })
+        console.log("updated events", updatedEvents);
+        console.log("events to change", eventsToChange);
+        tobeChanged = events.map( (event) => {
+            if (eventsToChange.some((e) => e.id === event.id)) {
+                return {
+                    ...event,
+                    color: "gray",
+                    extendedProps: {
+                        AssistantFlag: false,
+                        note: "Editing..." + "\n" + event.note,
+                    }
+                }
+            } else {
+                return event;
+            }
+        })
+        setEvents(tobeChanged);
+        console.log("to be changed", tobeChanged);
+    }
+
     return (
         <div>
             <div>
@@ -169,11 +214,24 @@ function Home() {
                     +
                 </button>
             </div>
-            <Calendar 
+            <div className ="home-container">
+                <div className="calendar-section">
+                <Calendar 
                     events={events} 
                     chat_events={chatEvents}
+                    updatedChatEvents={updatedChatEvents}
+                    toBeDeletedEvents={eventsToDelete}
                     eventClick={handleEventClick}
                     />
+                </div>
+                <div className="chat-section">
+                    <ChatComponent 
+                        refreshEvents={getEvents} 
+                        setChatEvents={newChatEvents} 
+                        setUpdatedChatEvents={eventsToChangeHandler} 
+                    />
+                </div>
+            </div>
             {isAddOpen && (
                 <div className="modal">
                     <div className="modal-content">
@@ -219,7 +277,6 @@ function Home() {
                     </div>
                 </div>
             )}
-            <ChatComponent refreshEvents={getEvents} setChatEvents={newChatEvents} />
         </div>
     );
 }

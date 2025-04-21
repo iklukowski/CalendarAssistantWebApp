@@ -2,9 +2,9 @@ import { useState } from "react"
 import api from "../api"
 import '../styles/Chat.css'
 
-const ChatComponent = ({refreshEvents, setChatEvents}) => {
+const ChatComponent = ({refreshEvents, setChatEvents, setUpdatedChatEvents}) => {
     const [message, setMessage] = useState("")
-    const [response, setResponse] = useState("")
+    const [responseHistory, setResponseHistory] = useState([])
 
     const ChatWithAssistant = async (message) => {
         const chat_response = await api.get(`/api/assistant/chat/?message=${encodeURIComponent(message)}`)
@@ -14,18 +14,38 @@ const ChatComponent = ({refreshEvents, setChatEvents}) => {
 
     const SendMessage = async () => {
         const assistantResponse = await ChatWithAssistant(message)
-        setResponse(assistantResponse.response)
-        setChatEvents(assistantResponse.new_events)
+        setResponseHistory((prev) => [
+            ...prev,
+            {user: message, assistant: assistantResponse.response}
+        ])
+        setMessage("")
+        //if(assistantResponse.new_events) setChatEvents(assistantResponse.new_events)
+        //if (assistantResponse.updated_events) setUpdatedChatEvents(assistantResponse.updated_events, assistantResponse.events_to_change)
         refreshEvents()
     }
 
     return (
         <div className="chat-container">
-            <h2>Chat with Assistant</h2>
-            <textarea className="chat-input" value={message} onChange={(e) => setMessage(e.target.value)}/>
-            <p/>
-            <button className="send-button" onClick={SendMessage}>Send Message</button>
-            <p>Assistant response: {response}</p>
+            <h2 className="chat-header">Calendar Assistant</h2>
+            <div className="chat-history">
+                {responseHistory.map((chat, index) => (
+                    <div key={index} className="chat-message">
+                        <div className="user-message">You: {chat.user}</div>
+                        <div className="assistant-message">Assistant: {chat.assistant}</div>
+                    </div>
+                ))}
+            </div>
+            <div className="chat-input-container">
+                <textarea
+                    className="chat-input"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="Type your message here..."
+                />
+                <button className="send-button" onClick={SendMessage}>
+                    Send
+                </button>
+            </div>
         </div>
     )
 

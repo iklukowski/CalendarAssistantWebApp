@@ -2,8 +2,8 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 
-function Calendar({events, chat_events=[], eventClick}) {
-    const calendar_events = [...events, ...chat_events];
+function Calendar({events, chat_events=[], updatedChatEvents=[], toBeDeletedEvents=[],eventClick}) {
+    const calendar_events = [...events, ...chat_events, ...updatedChatEvents, ...toBeDeletedEvents];
 
     function renderEventContent(eventInfo) {
         return(
