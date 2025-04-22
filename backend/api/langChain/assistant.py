@@ -47,7 +47,7 @@ class CalendarAssistant:
             "response": None
         }
         self.tools = [self.generate_events_agent, self.get_events_tool, self.update_events_agent, self.delete_events_agent]
-        self.model = ChatOpenAI(model="gpt-4o-mini")
+        self.model = ChatOpenAI(model="gpt-4.1-mini")
         self.memory = MemorySaver()
         self.supervisor = create_react_agent(
             model=self.model,

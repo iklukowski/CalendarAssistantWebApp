@@ -210,10 +210,10 @@ function Home() {
         <div>
             <div>
                 <h2>Calendar</h2>
-                <button className="add-event-button" onClick={() => setIsAddOpen(!isAddOpen)}>
+            </div>
+            <button className="add-event-button" onClick={() => setIsAddOpen(!isAddOpen)}>
                     +
                 </button>
-            </div>
             <div className ="home-container">
                 <div className="calendar-section">
                 <Calendar 

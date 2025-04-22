@@ -10,7 +10,6 @@ function Calendar({events, chat_events=[], updatedChatEvents=[], toBeDeletedEven
           <>
           <div>
             <b>{eventInfo.timeText}</b>
-            <button>+</button>
             <br />
             <i>{eventInfo.event.title}</i>
           </div>
@@ -30,8 +29,8 @@ function Calendar({events, chat_events=[], updatedChatEvents=[], toBeDeletedEven
             }}
             events={calendar_events}
             firstDay={1}
-            slotMinTime="08:00:00"
-            slotMaxTime="21:00:00"
+            slotMinTime="06:00:00"
+            slotMaxTime="23:00:00"
             expandRows={true}
             eventMouseEnter= { (info) => {
                 info.el.style.cursor = "pointer";
