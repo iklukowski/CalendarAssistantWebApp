@@ -13,10 +13,14 @@ const ChatComponent = ({refreshEvents, setChatEvents, setUpdatedChatEvents}) => 
     }
 
     const SendMessage = async () => {
+        setResponseHistory((prev) => [
+            ...prev,
+            {user: message, assistant: null}
+       ])
         const assistantResponse = await ChatWithAssistant(message)
         setResponseHistory((prev) => [
             ...prev,
-            {user: message, assistant: assistantResponse.response}
+            {user: null, assistant: assistantResponse.response}
         ])
         setMessage("")
         //if(assistantResponse.new_events) setChatEvents(assistantResponse.new_events)
@@ -30,8 +34,8 @@ const ChatComponent = ({refreshEvents, setChatEvents, setUpdatedChatEvents}) => 
             <div className="chat-history">
                 {responseHistory.map((chat, index) => (
                     <div key={index} className="chat-message">
-                        <div className="user-message">You: {chat.user}</div>
-                        <div className="assistant-message">Assistant: {chat.assistant}</div>
+                        {chat.user != null ? <div className="user-message">You: {chat.user}</div> : null}
+                        {chat.assistant != null ? <div className="assistant-message">Assistant: {chat.assistant}</div> : null}
                     </div>
                 ))}
             </div>

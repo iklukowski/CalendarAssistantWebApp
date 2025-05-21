@@ -2,328 +2,287 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langchain_core.tools import tool
 #from langchain_core.memory import ConversationBufferMemory
-from typing import Optional, Annotated
+from typing import Optional, Annotated, Literal
+from typing_extensions import TypedDict
 from pydantic import BaseModel, Field
 from ..models import Event
 from dotenv import load_dotenv
-from langgraph.prebuilt import InjectedState, create_react_agent
+from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import MemorySaver
 from datetime import datetime
 from django.contrib.auth.models import User
+from langgraph.graph import MessagesState, END, StateGraph, START
+from langgraph.types import Command
+from langchain.prompts import ChatPromptTemplate
 
 class ChatEvent(BaseModel):
-    """Structured representation of an event"""
-    id: str = Field(description="The unique identifier of the event (use string + number) unless its an already exsiting event than use the id of the event")
-    date: str = Field(description="The date of the event in YYYY-MM-DD format")
-    title: str = Field(description="The title of the event")
-    start_time: str = Field(description="The start time of the event in HH:MM format")
-    end_time: str = Field(description="The end time of the event in HH:MM format")
+    """Structure of the event"""
+    date: str = Field(description="date of the event in the YYYY-MM-DD format")
+    title: str = Field(description="title of the event")
+    start_time: str = Field(description="start time of the event in the HH:MM format")
+    end_time: str = Field(description="end time of the event in the HH:MM format")
 
+
+members = ["researcher", "scheduler", "conversation"]
+options = members + ["FINISH"]
+
+class UserSchema(BaseModel):
+    id: int = 0
+    username: str = ""
     
-class CreateEventResponse(BaseModel):
-    """Response for creating event(s)"""
-    event: Optional[list[ChatEvent]] = Field(description="The created list of events")
-    success: bool = Field(description="Indicates if the event was successfully created")
-    message: str = Field(description="A message indicating the result of the event creation")
-    
-class UpdateEventResponse(BaseModel):
-    """Response for updating event(s)"""
-    updated_events: Optional[list[ChatEvent]] = Field(description="The list of updated events, keep the id's the same as the original events")
-    success: bool = Field(description="Indicates if the event(s) was(were) successfully updated")
-    message: str = Field(description="A message indicating the result of the event(s) update")
-
-
-
-class CalendarAssistant:
-    def __init__(self):
-        load_dotenv()   
-        self.payload = {
-            "description": "",
-            "new_events": None,
-            "events_to_change": None,
-            "updated_events": None,
-            "deleted_events": None,
-            "modify_calendar": False,
-            "response": None
-        }
-        self.tools = [self.generate_events_agent, self.get_events_tool, self.update_events_agent, self.delete_events_agent]
-        self.model = ChatOpenAI(model="gpt-4.1-mini")
-        self.memory = MemorySaver()
-        self.supervisor = create_react_agent(
-            model=self.model,
-            tools=self.tools,
-            prompt="You are a helpful calendar assistant that supervises other agents to create, update and delete events in the calendar of the user"
-                    f"Today's date is {datetime.today().strftime('%Y-%m-%d')}, the current time is {datetime.now().strftime('%H:%M')}."
-                    "Do not call the agents with any parameters unless they need specific ones."
-                    "Agents are given to you with the help of tool-calling, you can call them with the help of the tool-calling system."
-                    "Call the get_events tool if the request of the user will require you create, udpdate or delete events."
-                    "if the tool has the word agent in it, call it once unless it comes back with an error. We want to prevent calling an agent twice which could lead to problems",
-            checkpointer=self.memory,
+    @classmethod
+    def from_django_user(cls,user : User):
+        return cls(
+            id=user.id,
+            username=user.username
         )
-        self.user = None
-        self.config = {"configurable": {"thread_id": "abc235"}}
-        self.retrieved_events = None
-        
-     #   self.memory = ConversationBufferMemory(memory_key="chat_history")
-    
-    
-    def get_events_tool(self):
-        ''' 
-        A tool to retrieve events from the database that belong to the user
-        '''
-        try:
-            #user_id = state.get("user")
-            #print(f"User ID: {user_id}")
-            #user = User.objects.get(id=user_id)
-            #print(f"User: {user}")
-            user = self.user 
-            events = Event.objects.filter(author=user)  # Replace with your actual query logic
-            formatted_events = [
-                {
-                    "id": event.id,
-                    "date": event.date.strftime('%Y-%m-%d'),
-                    "title": event.title,
-                    "start_time": event.start_time.strftime('%H:%M'),
-                    "end_time": event.end_time.strftime('%H:%M'),
-                }
-                for event in events
-            ]
 
-            # Update the state with the retrieved events
-            self.retrieved_events = formatted_events
-            return {
-                "success": True,
-                "events": formatted_events,
-                "message": "Events retrieved successfully."
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "events": None,
-                "message": f"Failed to retrieve events: {str(e)}"
-            }
-        
-    def generate_events_agent(self, state: Annotated[dict, InjectedState]):
-        ''' An agent that only creates events based on the user request, he does not update or delete events
-            He handles multiples events in the same request, do not call this agent if update_agent doen not work
-        '''
-        prompt = (
-            "You are an event creating assistant agent in the calendar domain, your task is to create events in the calendar based on the user request. "
-            "Only list an event to create if the user request is clear, do not update or delete events, that is a job for another agent. Ignore the part of the request that is not suitable for you purpose"
-            f"Here's the list of events that belong to the user: {self.retrieved_events}\n\n. Choose the events that need to be created based on the user request."
-            "Use this list to create the events using the generate_events tool, if there is a problem, return the error to the supervisor agent only try calling the tool once."
-            f"Today's date is {datetime.today().strftime('%Y-%m-%d')}, the current time is {datetime.now().strftime('%H:%M')}."
-            "Time is provided for you so that you can assess word like today or tomorrow, even if events are in the past you can create them."
-            "Make sure that you actually create the events, meaning that if you have not received a success message from the tool, return an error."
-            "Generate an ID for the event, it should be unique and not the same as any other event in the database."
-            "Before returning any messages, proceed with the creation of the events, and return the success message to the supervisor agent, unless there are no events to create."
-        )
-        llm = create_react_agent(
-            model = self.model,
-            tools = [self.generate_events],
-            prompt=prompt,
-        )
-        # Extract the last human message from the state
-        human_messages = [msg for msg in state["messages"] if isinstance(msg, HumanMessage)]
-        last_human_message = human_messages[-1].content if human_messages else ""
-        response = llm.invoke({"messages": HumanMessage(content=last_human_message)})
-        print(response["messages"])
-        return response["messages"][-1].content
+class CurrentUser:
+    user: User
     
-    def generate_events(self, new_events: list[dict[str, str]]):
-        '''A tool for the creating events agent to create the events in the database
-            args: new_events: list of events to create
-            events are to be structured like this:
-            id: the same as the original event (give as string)
-            date: in the format YYYY-MM-DD
-            title: The same unless the user wants to change it
-            start_time: in the format HH:MM
-            end_time: in the format HH:MM
-            returns: success: bool, message: str
-        '''
-        print("Tool Reached")
-        for new_event in new_events:
-            try:
-                # Create a new event instance
-                event = Event(
-                    author=self.user,
-                    title=new_event["title"],
-                    date=datetime.strptime(new_event["date"], '%Y-%m-%d').date(),
-                    start_time=datetime.strptime(new_event["start_time"], '%H:%M').time(),
-                    end_time=datetime.strptime(new_event["end_time"], '%H:%M').time()
-                )
-                # Save the event to the database
-                event.save()
-                print("Event Saved")
-            except Exception as e:
-                return {
-                    "success": False,
-                    "message": f"Failed to create event: {str(e)}"
-                }
-        return {
-            "success": True,
-            "message": "Events created successfully."
-        }
-    
-    def update_events_agent(self, state: Annotated[dict, InjectedState]):
-        ''' An agent that only updates events based on the user request, he does not create events
-            He handles multiples events in the same request
-            args: NO ARGS, the agent will use the retrieved events from the get_events_tool
-        '''
-        #llm = ChatOpenAI(model="gpt-4o-mini")
-        #llm_with_tools = llm.bind_tools([self.update_events])
-        prompt = (
-            f"You are an event updating assistant agent in the calendar domain, your task is to update events in the calendar based on the user request. "
-                                    "Only list an event to updated or edited if the user request is clear, do not create or delete events, that is a job for another agent. Ignore the part of the request that is not suitable for you purpose"
-                                    f"Here's the list of events that belong to the user: {self.retrieved_events}\n\n. Choose the events that need to be updated based on the user request."
-                                    "Try your best to choose the event that the user request is referring to. If the request mentions the title or date, make sure you choose the correct event from the calendar."
-                                    "Use this list to update the events using the update_events tool, if there is a problem, return the error to the supervisor agent only try calling the tool once."
-                                    f"Today's date is {datetime.today().strftime('%Y-%m-%d')}, the current time is {datetime.now().strftime('%H:%M')}."
-                                    "Time is provided for you so that you can assess word like today or tomorrow, even if events are in the past you can update them."
-                                    "Before returning any messages, proceed with the update of the events, and return the success message to the supervisor agent, unless there are no events to modify."
-        )
-        llm = create_react_agent(
-            model = self.model,
-            tools = [self.update_events],
-            prompt=prompt,
-        )
-        # Extract the last human message from the state
-        human_messages = [msg for msg in state["messages"] if isinstance(msg, HumanMessage)]
-        last_human_message = human_messages[-1].content if human_messages else ""
-
-        response = llm.invoke({"messages": HumanMessage(content=last_human_message)})  
-        print(response)
-        return response["messages"][-1].content
-    
-    def update_events(self, new_events: list[dict[str, str]]):
-        '''A tool for the updating events agent to update the events in the database
-            args: new_events: list of events to update (the changed events)
-            events are to be structured like this:
-            id: the same as the original event (give as string)
-            date: in the format YYYY-MM-DD
-            title: The same unless the user wants to change it
-            start_time: in the format HH:MM
-            end_time: in the format HH:MM
-            returns: success: bool, message: str
-        '''
-        print("Tool Reached")
-        for new_event in new_events:
-            try:
-                    # Fetch the event by ID
-                    event = Event.objects.get(id=new_event["id"], author=self.user)
-                    
-                    # Update the event fields
-                    event.title = new_event.get("title", event.title)
-                    event.date = datetime.strptime(new_event.get("date", event.date.strftime('%Y-%m-%d')), '%Y-%m-%d').date()
-                    event.start_time = datetime.strptime(new_event.get("start_time", event.start_time.strftime('%H:%M')), '%H:%M').time()
-                    event.end_time = datetime.strptime(new_event.get("end_time", event.end_time.strftime('%H:%M')), '%H:%M').time()
-                    
-                    # Save the updated event
-                    event.save()
-                    print("Event Saved")
-            except Event.DoesNotExist:
-                    return {
-                        "success": False,
-                        "message": f"Event with ID {new_event['id']} does not exist or does not belong to the user."
-                    }
-            except Exception as e:
-                    return {
-                        "success": False,
-                        "message": f"Failed to update event with ID {new_event['id']}: {str(e)}"
-                    }
-            
-            return {
-                "success": True,
-                "message": "Events updated successfully."
-            }
-    
-    
-    def delete_events_agent(self, state: Annotated[dict, InjectedState]):
-        ''' An agent that only deletes events based on the user request, he does not create or update events
-            He handles multiples events in the same request
-            args: NO ARGS, the agent will use the retrieved events from the get_events_tool
-        '''
-        prompt = (
-            "You are an event deleting assistant agent in the calendar domain, your task is to delete events in the calendar based on the user request. "
-            "Only list an event to delete if the user request is clear, do not create or update events, that is a job for another agent. Ignore the part of the request that is not suitable for you purpose"
-            f"Here's the list of events that belong to the user: {self.retrieved_events}\n\n. Choose the events that need to be deleted based on the user request."
-            "Try your best to choose the event that the user request is referring to. If the request mentions the title or date, make sure you choose the correct event from the calendar."
-            "Use this list to delete the events using the delete_events tool, if there is a problem, return the error to the supervisor agent only try calling the tool once."
-            f"Today's date is {datetime.today().strftime('%Y-%m-%d')}, the current time is {datetime.now().strftime('%H:%M')}."
-            "Use the id of the event to delete it, if the user wants to delete an event that does not exist, return an error."
-            "Time is provided for you so that you can assess word like today or tomorrow, even if events are in the past you can delete them."
-            "Make sure that you actually delete the events, meaning that if you have not received a success message from the tool, return an error."
-            "Before returning any messages, proceed with the deletion of the events, and return the success message to the supervisor agent, unless there are no events to delete."
-        )
-        llm = create_react_agent(
-            model = self.model,
-            tools = [self.delete_events],
-            prompt=prompt,
-        )
-        # Extract the last human message from the state
-        human_messages = [msg for msg in state["messages"] if isinstance(msg, HumanMessage)]
-        last_human_message = human_messages[-1].content if human_messages else ""
-
-        response = llm.invoke({"messages": HumanMessage(content=last_human_message)}) 
-        return response["messages"][-1].content
-
-    def delete_events(self, events_to_delete: list[dict[str, str]]):
-        '''A tool for the deleting events agent to delete the events in the database
-            args: events_to_delete: list of events to delete
-            events are to be structured like this:
-            id: the same as the original event (give as string)
-            returns: success: bool, message: str
-        '''
-        print("Tool Reached")
-        for event_to_delete in events_to_delete:
-            try:
-                # Fetch the event by ID
-                event = Event.objects.get(id=event_to_delete["id"], author=self.user)
-                
-                # Delete the event
-                event.delete()
-                print("Event Deleted")
-            except Event.DoesNotExist:
-                return {
-                    "success": False,
-                    "message": f"Event with ID {event_to_delete['id']} does not exist or does not belong to the user."
-                }
-            except Exception as e:
-                return {
-                    "success": False,
-                    "message": f"Failed to delete event with ID {event_to_delete['id']}: {str(e)}"
-                }
-        return {
-            "success": True,
-            "message": "Events deleted successfully."
-        }
-    
-        
-        
-    def respond(self, user_input, user):
-    #    chat_history = self.memory.load_memory_variables({})
-        last_message = "" 
+    def setUser(self, user: User):
         self.user = user
-        for chunk in self.supervisor.stream(
-            {"messages": [user_input]}, self.config, stream_mode="values"
-        ):
-            message = chunk["messages"][-1]
-            message.pretty_print()
-            if isinstance(message, AIMessage):
-               last_message = message.content
-            #print(chunk)
-            #print("---------------------")
-        print("Final payload")
-        print(self.payload)
-        print("---------------------")
-        print("Last message")
-        print(last_message)
-        return {
-            "description": self.payload["description"],
-            "new_events": [event.dict() for event in self.payload["new_events"]] if self.payload["new_events"] else None,
-            #"events_to_change": [event.dict() for event in self.payload["events_to_change"]] if self.payload["events_to_change"] else None,
-            #"updated_events": [event.dict() for event in self.payload["updated_events"]] if self.payload["updated_events"] else None,
-            #"deleted_events": self.payload["deleted_events"],
-            "modify_calendar": self.payload["modify_calendar"],
-            "response": last_message,
-        }
+    def getUser(self):
+        return self.user
+    
+current_user = CurrentUser()
+
+class Router(TypedDict):
+    """Worker to route to next. If no workers needed, route to FINISH.
+        Use instructions to provide additional information to the agent."""
+    next: Literal[*options]
+    instructions: Optional[str] = None
+    
+system_prompt = (
+    "You are a supervisor to calendar managing system of Agents. "
+    f"Here is the list of agents: {members}. "
+    "Given the user request respond with the agent to act next. "
+    "Each agent will perform a task connected to the calendar and respond with their results and status except the conversation agent who will end the process. "
+    "based on each agent's response, write the instructions for the next agent. "
+    "When finished call the conversation agent. ONLY CALL THE CONVERSATION AGENT AT THE END OR WHEN USER INFO IS NEEDED. "
+    "Use the conversation agent to finish the processing of a request. It will end the graph. Avoid looping. "
+    f"Today is {datetime.now().strftime('%Y-%m-%d')}, {datetime.now().strftime('%H:%M')}, {datetime.now().strftime('%A')}. "
+    "In case of updating or deleting an event, provide the id of the event to be updated or deleted. "
+    "Remember to give detailed instructions to the agents like exact dates, times, titles, and other information. "
+    "You can assume missing details of events if not provided by the user, some default values are: date - today, start time - 10:00, end time - 12:00, title - 'Event. "
+    "When not sure about the time details assume the user is meaning about an event close to the current time."
+)
+
+llm = ChatOpenAI(model="gpt-4.1-mini")
+
+
+class State(MessagesState):
+    next: str
+
+def supervisor_node(state: State) -> Command[Literal[*members, "__end__" ]]:
+    messages = [
+        {"role": "system", "content": system_prompt},
+    ] + state["messages"]
+    response = llm.with_structured_output(Router).invoke(messages)
+    goto = response["next"]
+    if goto == "FINISH":
+        goto = END
+        
+    return Command(goto=goto, update={"next": goto, 
+                                      "messages": [HumanMessage(content=response["instructions"], name="supervisor")]
+                                      })
+
+
+
+@tool
+def getEvents() -> list[dict]:
+    """Get events from the calendar and format them for the LLM."""
+    try:
+        events = Event.objects.filter(author=current_user.getUser())
+        formatted_events = [
+            {
+                "id": event.id,
+                "title": event.title,
+                "date": event.date.strftime("%Y-%m-%d"),
+                "start_time": event.start_time.strftime("%H:%M"),
+                "end_time": event.end_time.strftime("%H:%M"),
+            }
+            for event in events
+        ]
+        return formatted_events
+    except Exception as e:
+        return [{"error": f"Error retrieving events: {e}"}]
+
+
+research_prompt = ChatPromptTemplate.from_messages([
+    SystemMessage(content="You are a calendar information exctractor agent. After extracting the information about the user calendar, respond with the plan for the scheduler agent."
+            "The plan should be a list of events to create, a list of events to update, and a list of events to delete."
+            "The plan should be in the format: {'create': [], 'update': [], 'delete': []}"
+            "Try to follow supervisor instructions and not question them too much."
+            "Cancel means delete, and reschedule means update."
+            "Do not get stuck calling the tool indefnitely, you only need to call it once."),
+])
+
+research_agent = create_react_agent(
+    model=llm,
+    tools=[getEvents],
+    prompt="You are a calendar information exctractor agent. After extracting the information about the user calendar, respond with the plan for the scheduler agent."
+            "The plan should be a list of events to create, a list of events to update, and a list of events to delete."
+            "The plan should be in the format: {'create': [], 'update': [], 'delete': []}"
+            "Try to follow supervisor instructions and not question them too much."
+            "Cancel means delete, and reschedule means update."
+            "Do not get stuck calling the tool indefnitely, you only need to call it once.",
+)
+
+
+def research_node(state: State) -> Command[Literal["supervisor"]]:
+    result = research_agent.invoke(state)
+    return Command(
+        update={
+            "messages": [
+                HumanMessage(content=result["messages"][-1].content, name="researcher"),
+            ]
+        },
+        goto="supervisor",
+    )
+ 
+
+@tool
+def createEvent(event: Annotated[ChatEvent, Field(description="Event to create")]):
+    '''Create an event in the calendar'''
+    try:
+        event = Event(
+            author=current_user.getUser(),
+            title=event.title,
+            date=datetime.strptime(event.date, "%Y-%m-%d").date(),
+            start_time=datetime.strptime(event.start_time, "%H:%M").time(),
+            end_time=datetime.strptime(event.end_time, "%H:%M").time(),
+        )
+        event.save()
+       #print(f"Event created: {event}")
+    except Exception as e:
+        return f"Error creating event: {e}"
+    return f"Event created successfully {event}"
+
+@tool
+def updateEvent(update_id: Annotated[int, Field(description="Id of the event that should be updated")], updated_event: Annotated[ChatEvent, Field(description="Event to update")]):
+    '''Update an event in the calendar'''
+    try:
+        event = Event.objects.get(id=update_id, author=current_user.getUser())
+        event.title = updated_event.title
+        event.date = datetime.strptime(updated_event.date, "%Y-%m-%d").date()
+        event.start_time = datetime.strptime(updated_event.start_time, "%H:%M").time()
+        event.end_time = datetime.strptime(updated_event.end_time, "%H:%M").time()
+        event.save()
+       #print(f"Event updated: {event}")
+    except Exception as e:
+        return f"Error updating event: {e}"
+    return f"Event updated successfully {updated_event}"
+
+@tool
+def deleteEvent(delete_id: Annotated[int, Field(description="Id of the event that should be deleted")]):
+    '''Delete an event in the calendar'''
+    try:
+        event = Event.objects.get(id=delete_id, author=current_user.getUser())
+        event.delete()
+       #print(f"Event deleted: {event}")
+    except Exception as e:
+        return f"Error deleting event: {e}"
+    return f"Event deleted successfully {event}"
+    
+scheduler_agent = create_react_agent(
+    model=llm,
+    tools=[createEvent, updateEvent, deleteEvent],
+    prompt="You are a calendar event scheduler agent. After receiving the plan from the researcher agent, you will use available tools modify the calendar in accordance to the plan."
+            "In case of any errors, you will respond with the issues to the supervisor agent."
+            "Try to follow supervisor instructions and not question them too much."
+            "If you do not finish all tasks at once, respond with done tasks and notify the supervisor of the remaining tasks."
+            "If you finish all tasks, respond with the summary of the tasks and notify the supervisor."
+) 
+        
+def scheduler_node(state: State) -> Command[Literal["supervisor"]]:
+    result = scheduler_agent.invoke(state)
+    return Command(
+        update={
+            "messages": [
+                HumanMessage(content=result["messages"][-1].content, name="scheduler")
+            ]
+        },
+        goto="supervisor",
+    )
+
+class ConversationResponse(TypedDict):
+    """Structure of the conversation response"""
+    message: str
+    next: Literal["supervisor", "FINISH"]
+
+
+conversation_prompt = ("You are a conversation agent. You will be used to have a conversation with the user. "
+                    "Your task will be to summarize the actions of the agents and provide the user with the final summary to the request. "
+        "Your answer should be short and concise but friendly. "
+        "If the supervisor agent need additional information from the user, you will ask the user for it by ending the conversation. "
+        "Almost always next should be FINISH."
+)
+
+
+def conversation_node(state: State) -> Command[Literal["__end__"]]:
+    messages = [
+        {"role": "system", "content": conversation_prompt},
+    ] + state["messages"]
+    result = llm.with_structured_output(ConversationResponse).invoke(messages)
+    goto = END
+    #if result["next"] == "FINISH":
+    #    goto = END
+    #else:
+    #    goto = "supervisor"
+    return Command(
+        update={
+            "next": goto,
+            "messages": [
+                HumanMessage(content=result["message"], name="conversation")
+            ]
+        },
+        goto=goto,
+    )
+# Create the state graph
+
+memory = MemorySaver()
+config = {"configurable": {"thread_id": "abc123"}}
+
+builder = StateGraph(State)
+builder.add_edge(START, "supervisor")
+builder.add_node("supervisor", supervisor_node)
+builder.add_node("researcher", research_node)
+builder.add_node("scheduler", scheduler_node)
+builder.add_node("conversation", conversation_node)
+graph = builder.compile(checkpointer=memory)
+#try:
+#    graph.get_graph().draw_mermaid_png(output_file_path="graph.png")
+#except Exception as e:
+#    print(f"Error drawing graph: {e}")
+#graph.get_graph().draw_mermaid_png(output_file_path="graph.png")
+
+    
+class CalendarAssistant:
+    def __init__(self, user: User):
+        load_dotenv()
+        #self.user = UserSchema.from_django_user(user)
+        self.graph = graph
+        self.state = {"messages": [], "next": "supervisor"}
+        current_user.setUser(user)
+        #self.graph.get_graph().draw_mermaid_png(output_file_path="graph.png")
+        #self.state.start()  # Start the state machine
+
+    def run(self, message: str):
+        self.state["messages"].append({"role": "user", "content": message})
+        for s in self.graph.stream(self.state, subgraphs=True, stream_mode="updates", config=config):
+            # Access the state update
+            state_update = s[1]
+            for agent_name, agent_state in state_update.items():
+                # Print the agent name and its state
+                print(f"Agent: {agent_name}")
+                print(f"State: {agent_state}")
+                print(f"Message: {agent_state.get("messages", [])[-1].content}")
+                messages = agent_state.get("messages", [])[-1]
+                self.state["messages"].append(messages)
+                print("---")
+            
+        # Return the last message content
+        print(f"Last message: {self.state['messages'][-1]}")
+        return {"response": self.state["messages"][-1].content}
+        
