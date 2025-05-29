@@ -80,6 +80,7 @@ Ensure the terminal is place in the `backend/` folder and run:
 ```
 
 ## Project Structure
+```
 CalendarAssistantWebApp/
 ├── backend/
 │   ├── api/
@@ -111,3 +112,4 @@ CalendarAssistantWebApp/
 │   ├── public/
 │   └── package.json
 └── [README.md]
+```
