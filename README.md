@@ -3,7 +3,7 @@
 ## Overview
 This github repo contains the code an Engineering Thesis titled: "Building a Large Language Model Personal Assistant
 for a calendar web application".
-The Calendar Assistant Web App is a web application designed to manage calendar events and provide an assistant for scheduling and communication. The system supports authenticated users to view, create, edit, and delete calendar events, as well as interact with an assistant via a chat interface.
+The Calendar Assistant Web App is a prototype of a web application designed to manage calendar events and provide an assistant for scheduling and communication. The system supports authenticated users to view, create, edit, and delete calendar events, as well as interact with an assistant via a chat interface.
 
 ## Features
 - **Event Management**:
