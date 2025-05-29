@@ -54,7 +54,7 @@ class Router(TypedDict):
     instructions: Optional[str] = None
     
 system_prompt = (
-    "You are a supervisor to calendar managing system of Agents. "
+    "You are a supervisor to calendar managing a system of Agents. "
     f"Here is the list of agents: {members}. "
     "Given the user request respond with the agent to act next. "
     "Each agent will perform a task connected to the calendar and respond with their results and status except the conversation agent who will end the process. "
@@ -275,14 +275,14 @@ class CalendarAssistant:
             state_update = s[1]
             for agent_name, agent_state in state_update.items():
                 # Print the agent name and its state
-                print(f"Agent: {agent_name}")
-                print(f"State: {agent_state}")
-                print(f"Message: {agent_state.get("messages", [])[-1].content}")
+                #print(f"Agent: {agent_name}")
+                #print(f"State: {agent_state}")
+                #print(f"Message: {agent_state.get("messages", [])[-1].content}")
                 messages = agent_state.get("messages", [])[-1]
                 self.state["messages"].append(messages)
-                print("---")
+                #print("---")
             
         # Return the last message content
-        print(f"Last message: {self.state['messages'][-1]}")
+        #print(f"Last message: {self.state['messages'][-1]}")
         return {"response": self.state["messages"][-1].content}
         
